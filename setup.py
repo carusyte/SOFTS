@@ -1,4 +1,12 @@
+import os
 from setuptools import setup, find_packages
+
+# Get the directory containing this file
+here = os.path.abspath(os.path.dirname(__file__))
+
+# Read the contents of the README file
+with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="SOFTS",
@@ -17,12 +25,12 @@ setup(
             # Define command-line scripts here
         ],
     },
-    author="Xu-Yang Chen,Lu Han",
-    author_email="your.email@example.com",
-    description='Official implement for "SOFTS: Efficient Multivariate Time Series Forecasting with Series-Core Fusion" in PyTorch.',
-    long_description=open("README.md").read(),
+    author="carusyte",
+    author_email="carusyte@163.com",
+    description="Standalone package of https://github.com/Secilia-Cxy/SOFTS with engineering enhancements.",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Secilia-Cxy/SOFTS",
+    url="https://github.com/carusyte/SOFTS",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
