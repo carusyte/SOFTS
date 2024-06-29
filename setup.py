@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 here = os.path.abspath(os.path.dirname(__file__))
 
 # Read the contents of the README file
-with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+with open(os.path.join(here, "README.MD"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
