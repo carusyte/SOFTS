@@ -13,6 +13,11 @@ from softs.exp.exp_basic import Exp_Basic
 from softs.utils.timefeatures import time_features
 from softs.utils.tools import EarlyStopping, adjust_learning_rate, AverageMeter
 
+from sklearn.metrics import (
+    mean_absolute_error,
+    root_mean_squared_error,
+)
+
 warnings.filterwarnings('ignore')
 
 
@@ -72,6 +77,17 @@ class Exp_Custom(Exp_Basic):
         super(Exp_Custom, self).__init__(args)
         # Loss Function
         self.loss_func = getattr(args, "loss_func", "mse")
+        self.metrics = {
+            "epoch": 0,
+            "MAE_val": None,
+            "RMSE_val": None,
+            "Loss_val": None,
+            "MAE": None,
+            "RMSE": None,
+            "Loss": None,
+        }
+        self.path=None
+        self.setting=None
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -149,6 +165,8 @@ class Exp_Custom(Exp_Basic):
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path):
             os.makedirs(path)
+        self.path = path
+        self.setting = setting
 
         time_now = time.time()
 
@@ -159,8 +177,11 @@ class Exp_Custom(Exp_Basic):
         criterion = self._select_criterion()
 
         for epoch in range(self.args.train_epochs):
+            self.metrics["epoch"] = epoch
             iter_count = 0
             train_loss = []
+            mae = []
+            rmse = []
 
             self.model.train()
             epoch_time = time.time()
@@ -180,6 +201,18 @@ class Exp_Custom(Exp_Basic):
                 if (i + 1) % 100 == 0:
                     loss_float = loss.item()
                     train_loss.append(loss_float)
+                    
+                    # Reshape tensors if they have more than 2 dimensions
+                    if batch_y.ndim > 2:
+                        batch_y_squeezed = batch_y.reshape(-1, batch_y.shape[-1])
+                        outputs_squeezed = outputs.reshape(-1, outputs.shape[-1])
+                    else:
+                        batch_y_squeezed = batch_y
+                        outputs_squeezed = outputs
+                    
+                    mae.append(mean_absolute_error(batch_y_squeezed.cpu().detach().numpy(), outputs_squeezed.cpu().detach().numpy()))
+                    rmse.append(root_mean_squared_error(batch_y_squeezed.cpu().detach().numpy(), outputs_squeezed.cpu().detach().numpy()))
+                    
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss_float))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
@@ -192,6 +225,9 @@ class Exp_Custom(Exp_Basic):
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
+            self.metrics["Loss"] = train_loss
+            self.metrics["MAE"] = np.average(mae)
+            self.metrics["RMSE"] = np.average(rmse)
             vali_loss = None
             test_loss = None
             if vali_data is not None:
@@ -221,14 +257,14 @@ class Exp_Custom(Exp_Basic):
 
     def test(self, setting, test_data, stride=1):
         test_data, test_loader = self._get_data(test_data, mode='test', stride=stride)
-        model_path = os.path.join('./checkpoints/' + setting, 'checkpoint.pth')
+        model_path = os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')
         print(f'loading model from {model_path}')
         self.model.load_state_dict(torch.load(model_path))
 
         mse_loss = nn.MSELoss()
         mae_loss = nn.L1Loss()
         huber_loss = nn.HuberLoss()
-        mse = AverageMeter()
+        rmse = AverageMeter()
         mae = AverageMeter()
         huber = AverageMeter()
         self.model.eval()
@@ -243,19 +279,22 @@ class Exp_Custom(Exp_Basic):
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
-                mse.update(mse_loss(outputs, batch_y).item(), batch_x.size(0))
+                rmse.update(np.sqrt(mse_loss(outputs, batch_y).item()), batch_x.size(0))
                 mae.update(mae_loss(outputs, batch_y).item(), batch_x.size(0))
                 huber.update(huber_loss(outputs, batch_y).item(), batch_x.size(0))
 
-        mse = mse.avg
+        rmse = rmse.avg
         mae = mae.avg
         huber = huber.avg
-        print('mse:{}, mae:{}, huber:{}'.format(mse, mae, huber))
-        return
+        self.metrics["MAE_val"] = mae
+        self.metrics["RMSE_val"] = rmse
+        self.metrics["Loss_val"] = huber
+        print('rmse:{}, mae:{}, huber:{}'.format(rmse, mae, huber))
+        return rmse, mae, huber
 
     def predict(self, setting, pred_data, stride=1):
         pred_data, pred_loader = self._get_data(pred_data, mode='pred', stride=stride)
-        model_path = os.path.join('./checkpoints/' + setting, 'checkpoint.pth')
+        model_path = os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')
         print(f'loading model from {model_path}')
         self.model.load_state_dict(torch.load(model_path))
 
@@ -267,7 +306,7 @@ class Exp_Custom(Exp_Basic):
                 batch_x_mark = batch_x_mark.float().to(self.device)
 
                 outputs = self.model(batch_x, batch_x_mark, None, None)
-                f_dim = -1 if self.args.features == 'MS' else 0
+                f_dim = -1 if self.args.features == 'MS' and not self.args.predict_all else 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 preds.append(outputs.cpu().numpy())
         pred = np.concatenate(preds, axis=0)

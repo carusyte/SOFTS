@@ -12,7 +12,29 @@ class EncoderLayer(nn.Module):
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
-        self.activation = F.relu if activation == "relu" else F.gelu
+        match activation:
+            case "relu":
+                self.activation = F.relu
+            case "gelu":
+                self.activation = F.gelu
+            case "relu6":
+                self.activation = F.relu6
+            case "elu":
+                self.activation = F.elu
+            case "selu":
+                self.activation = F.selu
+            case "celu":
+                self.activation = F.celu
+            case "leaky_relu":
+                self.activation = F.leaky_relu
+            case "prelu":
+                self.activation = F.prelu
+            case "rrelu":
+                self.activation = F.rrelu
+            case "glu":
+                self.activation = F.glu
+            case _:
+                raise NotImplemented
 
     def forward(self, x, attn_mask=None, tau=None, delta=None, **kwargs):
         new_x, attn = self.attention(
