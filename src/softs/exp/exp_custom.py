@@ -228,9 +228,9 @@ class Exp_Custom(Exp_Basic):
                 "Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time)
             )
             train_loss = np.average(train_loss)
-            self.metrics["Loss"] = train_loss
-            self.metrics["MAE"] = np.average(mae)
-            self.metrics["RMSE"] = np.average(rmse)
+            self.metrics["Loss"] = float(train_loss)
+            self.metrics["MAE"] = float(np.average(mae))
+            self.metrics["RMSE"] = float(np.average(rmse))
             vali_loss = None
             test_loss = None
             if vali_data is not None:
