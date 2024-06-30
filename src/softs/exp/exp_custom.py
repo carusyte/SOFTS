@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from softs.exp.exp_basic import Exp_Basic
 from softs.utils.timefeatures import time_features
-from softs.utils.tools import EarlyStopping, adjust_learning_rate, AverageMeter
+from softs.utils.tools import EarlyStopping, adjust_learning_rate, AverageMeter, get_logger
 
 from sklearn.metrics import (
     mean_absolute_error,
@@ -88,6 +88,7 @@ class Exp_Custom(Exp_Basic):
         }
         self.path=None
         self.setting=None
+        self.logger = get_logger(__name__)
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -97,10 +98,10 @@ class Exp_Custom(Exp_Basic):
         if self.args.use_gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = self.args.gpu
             device = torch.device('cuda:{}'.format(self.args.gpu))
-            print('Use GPU: cuda:{}'.format(self.args.gpu))
+            self.logger.info('Use GPU: cuda: %s', self.args.gpu)
         else:
             device = torch.device('cpu')
-            print('Use CPU')
+            self.logger.info('Use CPU')
         return device
 
     def _get_data(self, data, mode, stride=1):
@@ -201,7 +202,7 @@ class Exp_Custom(Exp_Basic):
                 if (i + 1) % 100 == 0:
                     loss_float = loss.item()
                     train_loss.append(loss_float)
-                    
+
                     # Reshape tensors if they have more than 2 dimensions
                     if batch_y.ndim > 2:
                         batch_y_squeezed = batch_y.reshape(-1, batch_y.shape[-1])
@@ -209,21 +210,23 @@ class Exp_Custom(Exp_Basic):
                     else:
                         batch_y_squeezed = batch_y
                         outputs_squeezed = outputs
-                    
+
                     mae.append(mean_absolute_error(batch_y_squeezed.cpu().detach().numpy(), outputs_squeezed.cpu().detach().numpy()))
                     rmse.append(root_mean_squared_error(batch_y_squeezed.cpu().detach().numpy(), outputs_squeezed.cpu().detach().numpy()))
-                    
-                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss_float))
+
+                    self.logger.debug("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss_float))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
-                    print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+                    self.logger.debug('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 
                 loss.backward()
                 model_optim.step()
 
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            self.logger.debug(
+                "Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time)
+            )
             train_loss = np.average(train_loss)
             self.metrics["Loss"] = train_loss
             self.metrics["MAE"] = np.average(mae)
@@ -234,16 +237,23 @@ class Exp_Custom(Exp_Basic):
                 vali_loss = self.vali(vali_loader, criterion)
                 early_stopping(vali_loss, self.model, path)
                 if early_stopping.early_stop:
-                    print("Early stopping")
+                    self.logger.debug("Early stopping")
                     break
 
             if test_data is not None:
                 test_loss = self.vali(test_loader, criterion)
 
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
-                epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            self.logger.debug(
+                "Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3} Test Loss: {4}".format(
+                    epoch + 1,
+                    train_steps,
+                    train_loss if train_loss is not None else "None",
+                    "{:.7f}".format(vali_loss) if vali_loss is not None else "None",
+                    "{:.7f}".format(test_loss) if test_loss is not None else "None",
+                )
+            )
             if early_stopping.early_stop:
-                print("Early stopping")
+                self.logger.debug("Early stopping")
                 break
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
@@ -258,7 +268,7 @@ class Exp_Custom(Exp_Basic):
     def test(self, setting, test_data, stride=1):
         test_data, test_loader = self._get_data(test_data, mode='test', stride=stride)
         model_path = os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')
-        print(f'loading model from {model_path}')
+        self.logger.debug(f"loading model from {model_path}")
         self.model.load_state_dict(torch.load(model_path))
 
         mse_loss = nn.MSELoss()
@@ -289,13 +299,13 @@ class Exp_Custom(Exp_Basic):
         self.metrics["MAE_val"] = mae
         self.metrics["RMSE_val"] = rmse
         self.metrics["Loss_val"] = huber
-        print('rmse:{}, mae:{}, huber:{}'.format(rmse, mae, huber))
+        self.logger.debug("rmse:{}, mae:{}, huber:{}".format(rmse, mae, huber))
         return rmse, mae, huber
 
     def predict(self, setting, pred_data, stride=1):
         pred_data, pred_loader = self._get_data(pred_data, mode='pred', stride=stride)
         model_path = os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')
-        print(f'loading model from {model_path}')
+        self.logger.debug(f"loading model from {model_path}")
         self.model.load_state_dict(torch.load(model_path))
 
         preds = []

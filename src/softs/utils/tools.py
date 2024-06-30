@@ -1,7 +1,23 @@
 import math
+import logging
 
 import numpy as np
 import torch
+
+from logging import Logger
+
+logger = None
+
+
+def get_logger(name=None) -> Logger:
+    global logger
+
+    if logger is not None:
+        return logger
+
+    logger = logging.getLogger(name if name is not None else __name__)
+
+    return logger
 
 
 class AverageMeter:
