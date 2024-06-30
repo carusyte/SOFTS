@@ -199,7 +199,7 @@ class Exp_Custom(Exp_Basic):
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 loss = criterion(outputs, batch_y)
 
-                if (i + 1) % 100 == 0:
+                if (i + 1) % int(np.sqrt(train_steps)) == 0:
                     loss_float = loss.item()
                     train_loss.append(loss_float)
 
