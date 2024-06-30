@@ -74,6 +74,7 @@ class Dataset_Custom(Dataset):
 
 class Exp_Custom(Exp_Basic):
     def __init__(self, args):
+        self.logger = get_logger(__name__)
         super(Exp_Custom, self).__init__(args)
         # Loss Function
         self.loss_func = getattr(args, "loss_func", "mse")
@@ -88,7 +89,6 @@ class Exp_Custom(Exp_Basic):
         }
         self.path=None
         self.setting=None
-        self.logger = get_logger(__name__)
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
