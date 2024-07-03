@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -12,6 +13,9 @@ class EncoderLayer(nn.Module):
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
+
+        self.activation = None
+        self.prelu_weight = None
         match activation:
             case "relu":
                 self.activation = F.relu
@@ -28,13 +32,17 @@ class EncoderLayer(nn.Module):
             case "leaky_relu":
                 self.activation = F.leaky_relu
             case "prelu":
-                self.activation = F.prelu
+                self.prelu_weight = nn.Parameter(torch.Tensor(d_ff))
+                nn.init.constant_(self.prelu_weight, 0.25)
+                # self.activation = F.prelu
             case "rrelu":
                 self.activation = F.rrelu
             case "glu":
                 self.activation = F.glu
             case _:
-                raise NotImplemented
+                raise NotImplementedError(
+                    f"Activation function '{activation}' is not implemented"
+                )
 
     def forward(self, x, attn_mask=None, tau=None, delta=None, **kwargs):
         new_x, attn = self.attention(
@@ -46,8 +54,25 @@ class EncoderLayer(nn.Module):
         x = x + self.dropout(new_x)
 
         y = x = self.norm1(x)
-        y = self.dropout(self.activation(self.conv1(y.transpose(-1, 1))))
+        y = self.conv1(y.transpose(-1, 1))
+
+        # Apply activation function
+        if self.prelu_weight is not None:
+            y = F.prelu(y, self.prelu_weight)
+        elif self.activation == F.glu:
+            # Ensure the dimension size is even for GLU
+            if y.size(1) % 2 != 0:
+                y = F.pad(y, (0, 0, 0, 1), "constant", 0)  # Pad to make the size even
+            y = F.glu(y)
+        else:
+            y = self.activation(y)
+
+        y = self.dropout(y)
         y = self.dropout(self.conv2(y).transpose(-1, 1))
+
+        # Ensure the dimensions match before addition
+        if x.size(1) != y.size(1):
+            y = F.interpolate(y, size=x.size(1), mode="nearest")
 
         return self.norm2(x + y), attn
 
