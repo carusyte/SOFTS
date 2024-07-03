@@ -61,8 +61,10 @@ class EncoderLayer(nn.Module):
             y = F.prelu(y, self.prelu_weight)
         elif self.activation == F.glu:
             # Ensure the dimension size is even for GLU
-            if y.size(1) % 2 != 0:
-                y = F.pad(y, (0, 0, 0, 1), "constant", 0)  # Pad to make the size even
+            # if y.size(1) % 2 != 0:
+            #     y = F.pad(y, (0, 0, 0, 1), "constant", 0)  # Pad to make the size even
+            if y.size(2) % 2 != 0:
+                y = F.pad(y, (0, 1), "constant", 0)  # Pad to make the size even
             y = F.glu(y)
         else:
             y = self.activation(y)
