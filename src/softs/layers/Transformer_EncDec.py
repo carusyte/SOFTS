@@ -73,8 +73,8 @@ class EncoderLayer(nn.Module):
         y = self.dropout(self.conv2(y).transpose(-1, 1))
 
         # Ensure the dimensions match before addition
-        if x.size(1) != y.size(1):
-            y = F.interpolate(y, size=x.size(1), mode="nearest")
+        if x.size(2) != y.size(2):
+            y = F.interpolate(y, size=x.size(2), mode="nearest")
 
         return self.norm2(x + y), attn
 
