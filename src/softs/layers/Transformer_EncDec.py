@@ -73,8 +73,21 @@ class EncoderLayer(nn.Module):
         y = self.dropout(self.conv2(y).transpose(-1, 1))
 
         # Ensure the dimensions match before addition
-        # if x.size(2) != y.size(2):
-        #     y = F.interpolate(y, size=x.size(2), mode="nearest")
+        # Padding to match the sequence length (L) of x & y
+        if y.size(1) < x.size(1):
+            pad_length = x.size(1) - y.size(1)
+            y = F.pad(y, (0, 0, 0, pad_length))
+        elif y.size(1) > x.size(1):
+            pad_length = y.size(1) - x.size(1)
+            x = F.pad(x, (0, 0, 0, pad_length))
+
+        # Padding to match the feature dimension (D) of x & y
+        if y.size(2) < x.size(2):
+            pad_dim = x.size(2) - y.size(2)
+            y = F.pad(y, (0, pad_dim))
+        elif y.size(2) > x.size(2):
+            pad_dim = y.size(2) - x.size(2)
+            x = F.pad(x, (0, pad_dim))
 
         return self.norm2(x + y), attn
 
