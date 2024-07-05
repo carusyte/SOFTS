@@ -89,6 +89,7 @@ class Exp_Custom(Exp_Basic):
         }
         self.path=None
         self.setting=None
+        self.optimizer=None
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -126,6 +127,7 @@ class Exp_Custom(Exp_Basic):
 
     def _select_optimizer(self):
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        self.optimizer = model_optim
         return model_optim
 
     def _select_criterion(self):
@@ -136,6 +138,11 @@ class Exp_Custom(Exp_Basic):
                 return nn.L1Loss()
             case "huber":
                 return nn.HuberLoss()
+
+    def cleanup(self):
+        del self.model
+        del self.optimizer
+        torch.cuda.empty_cache()
 
     def vali(self, vali_loader, criterion):
         total_loss = AverageMeter()
