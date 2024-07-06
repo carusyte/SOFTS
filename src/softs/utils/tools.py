@@ -1,3 +1,4 @@
+import os
 import math
 import logging
 
@@ -15,7 +16,14 @@ def get_logger(name=None) -> Logger:
     if logger is not None:
         return logger
 
+    level = os.getenv("LOG_LEVEL")
+    level = level.upper() if level else None
+
     logger = logging.getLogger(name if name is not None else __name__)
+    if not logger.handlers:  # Check if the logger already has handlers
+        logger.setLevel(logging.INFO if level is None else level)
+        console_handler = logging.StreamHandler()
+        logger.addHandler(console_handler)
 
     return logger
 
