@@ -162,21 +162,18 @@ class Exp_Custom(Exp_Basic):
                     self.model.parameters(),
                     lr=self.args.learning_rate,
                     fused=self.args.use_gpu,
-                    foreach=True,
                 )
             case "AdamW":
                 model_optim = optim.AdamW(
                     self.model.parameters(),
                     lr=self.args.learning_rate,
                     fused=self.args.use_gpu,
-                    foreach=True,
                 )
             case "SGD":
                 model_optim = optim.SGD(
                     self.model.parameters(),
                     lr=self.args.learning_rate,
                     fused=self.args.use_gpu,
-                    foreach=True,
                 )
         self.optimizer = model_optim
         return model_optim
