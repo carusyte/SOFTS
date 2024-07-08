@@ -110,10 +110,10 @@ class Exp_Custom(Exp_Basic):
         if self.args.use_gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = self.args.gpu
             device = torch.device("cuda:{}".format(self.args.gpu))
-            self.logger.info("Use GPU: cuda: %s", self.args.gpu)
+            self.logger.debug("Using GPU: cuda: %s", self.args.gpu)
         else:
             device = torch.device("cpu")
-            self.logger.info("Use CPU")
+            self.logger.debug("Using CPU")
         return device
 
     def _get_data(self, data, mode, stride=1):
