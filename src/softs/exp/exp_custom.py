@@ -99,7 +99,7 @@ class Exp_Custom(Exp_Basic):
         self.setting = None
         self.optimizer = None
         self.scaler = None
-    
+
     def __del__(self):
         self.cleanup()
 
@@ -191,8 +191,10 @@ class Exp_Custom(Exp_Basic):
                 return nn.HuberLoss()
 
     def cleanup(self):
-        del self.model
-        del self.optimizer
+        if hasattr(self, "model"):
+            del self.model
+        if hasattr(self, "optimizer"):
+            del self.optimizer
         torch.cuda.empty_cache()
 
     def vali(self, vali_loader, criterion):
