@@ -99,6 +99,9 @@ class Exp_Custom(Exp_Basic):
         self.setting = None
         self.optimizer = None
         self.scaler = None
+    
+    def __del__(self):
+        self.cleanup()
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args)
