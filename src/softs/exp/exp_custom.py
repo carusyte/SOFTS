@@ -197,6 +197,57 @@ class Exp_Custom(Exp_Basic):
             del self.optimizer
         torch.cuda.empty_cache()
 
+    def memory_demand(self):
+        model = self.model
+        input_size = (self.args.seq_len, self.args.d_model)
+        batch_size = self.args.batch_size
+        pred_len = self.args.pred_len
+        # Calculate the number of parameters
+        num_params = sum(p.numel() for p in model.parameters())
+        param_memory = num_params * 4  # Assuming float32, 4 bytes per parameter
+
+        # Estimate the size of activation maps
+        activation_memory = 0
+        dummy_input = torch.randn(batch_size, *input_size).to(
+            next(model.parameters()).device
+        )
+        dummy_x_mark_enc = torch.randn(batch_size, input_size[0], input_size[1]).to(
+            next(model.parameters()).device
+        )
+        dummy_x_dec = torch.randn(batch_size, pred_len, input_size[1]).to(
+            next(model.parameters()).device
+        )
+        dummy_x_mark_dec = torch.randn(batch_size, pred_len, input_size[1]).to(
+            next(model.parameters()).device
+        )
+        hooks = []
+
+        def hook_fn(module, input, output):
+            nonlocal activation_memory
+            if isinstance(output, torch.Tensor):
+                activation_memory += output.numel() * 4
+            elif isinstance(output, (tuple, list)):
+                for out in output:
+                    if isinstance(out, torch.Tensor):
+                        activation_memory += out.numel() * 4
+
+        for layer in model.children():
+            hooks.append(layer.register_forward_hook(hook_fn))
+
+        # Perform a forward pass to trigger the hooks
+        model(dummy_input, dummy_x_mark_enc, dummy_x_dec, dummy_x_mark_dec)
+
+        # Remove hooks
+        for hook in hooks:
+            hook.remove()
+
+        # Calculate the memory for gradients (same as parameters)
+        gradient_memory = param_memory
+
+        # Total memory required
+        total_memory = param_memory + activation_memory + gradient_memory
+        return total_memory
+
     def vali(self, vali_loader, criterion):
         total_loss = AverageMeter()
         self.model.eval()
