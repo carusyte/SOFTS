@@ -197,9 +197,9 @@ class Exp_Custom(Exp_Basic):
             del self.optimizer
         torch.cuda.empty_cache()
 
-    def memory_demand(self):
+    def memory_demand(self, feat_size):
         model = self.model
-        input_size = (self.args.seq_len, self.args.d_model)
+        input_size = (self.args.seq_len, feat_size)
         batch_size = self.args.batch_size
         pred_len = self.args.pred_len
         # Calculate the number of parameters
