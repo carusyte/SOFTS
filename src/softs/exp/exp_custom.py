@@ -289,6 +289,7 @@ class Exp_Custom(Exp_Basic):
 
         train_steps = len(train_loader)
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        best_train_loss = None
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -378,6 +379,12 @@ class Exp_Custom(Exp_Basic):
             self.logger.debug(
                 "Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time)
             )
+            
+            if best_train_loss is None or train_loss < best_train_loss:
+                best_train_loss = train_loss
+                if vali_data is None:
+                    torch.save(self.model.state_dict(), path + "/" + "checkpoint.pth")
+                    
             train_loss = np.average(train_loss)
             self.metrics["Loss"] = float(train_loss)
             self.metrics["MAE"] = float(np.average(mae))
